@@ -1,0 +1,18 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# Keys
+*.pem
+*.pub
+env/id_rsa
+env/id_rsa.pub
+env/temp
+env/temp.pub
+
+# Python
+__pycache__/
+*.pyc
+.venv/
