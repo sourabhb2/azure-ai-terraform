@@ -1,24 +1,58 @@
-# Azure AI Terraform (Local LLM + GitHub Actions)
+# Azure AI Terraform — Prompt → Terraform → GitHub Actions (Azure)
 
-Create Azure resources using simple prompts on your local machine.
+Generate Azure infrastructure from **plain-English prompts** using a **local LLM (Ollama)**, then deploy with **Terraform** via **GitHub Actions**.
+
+**Recruiter summary (what this demonstrates):**
+- Local AI-assisted automation (prompt → structured JSON)
+- Infrastructure as Code (Terraform templating)
+- CI/CD to Azure (GitHub Actions)
+- Security hygiene (no secrets committed, least-privilege guidance)
+
+---
+
+## How it works
+
+1) You type a command (prompt)
+2) Local LLM (Ollama) converts it into strict JSON
+3) JSON fills Terraform templates → writes `env/main.tf`
+4) Terraform runs locally: `fmt` → `init` → `validate`
+5) Git commit/push → GitHub Actions runs `terraform plan/apply`
+
+```mermaid
+flowchart LR
+	P[Prompt] --> L[Ollama Local LLM]
+	L --> J[Strict JSON]
+	J --> T[Terraform templates]
+	T --> M[env/main.tf]
+	M --> GA[GitHub Actions]
+	GA --> AZ[Azure Resources]
+```
+
+---
+
+## Quick demo
+
+Run locally:
+
+```bash
+python local_ai.py
+```
 
 Example prompts:
+
 - `create storage account rg_name=dev-rg location="Central India" storage_account_name=aistorage1234`
 - `create vm rg_name=dev-rg location="Central India" vm_name=ai-vm vm_size=Standard_B1s`
 
-Flow:
-1. Local prompt -> Ollama (Local LLM) -> JSON
-2. JSON fills Terraform templates -> env/main.tf
-3. Terraform fmt/init/validate locally
-4. Git commit/push
-5. GitHub Actions runs Terraform apply to create Azure resources
+---
 
-## Repository structure
+## Repo structure
 
 ```
 azure-ai-terraform/
 ├── .github/workflows/terraform.yml
-├── env/provider.tf
+├── env/
+│   ├── provider.tf
+│   └── main.tf          # generated
 ├── templates/
 │   ├── storage.tf.tpl
 │   └── vm.tf.tpl
@@ -27,52 +61,68 @@ azure-ai-terraform/
 └── README.md
 ```
 
+---
+
 ## Prerequisites
 
-- Terraform installed and in PATH
-- Git installed
+- Terraform
+- Git
 - Python 3.10+
-- Ollama installed
-- Azure CLI installed
+- Ollama
+- Azure CLI
 
-## Setup Ollama
+---
 
-Install model:
+## Setup (local)
+
+### 1) Start Ollama + pull a model
+
 ```bash
 ollama pull phi3:mini
-```
-
-Verify server:
-```bash
 curl http://127.0.0.1:11434/api/tags
 ```
 
-## Setup Azure Service Principal for GitHub Actions
+### 2) Prepare Terraform working folder
 
-Login:
+This repo generates `env/main.tf`.
+
+---
+
+## Setup (GitHub Actions → Azure)
+
+This workflow uses **Service Principal** auth via repository secrets.
+
+Create an SP (example):
+
 ```bash
 az login
+az ad sp create-for-rbac \
+	--name "github-terraform-sp" \
+	--role Contributor \
+	--scopes /subscriptions/<SUBSCRIPTION_ID>
 ```
 
-Create SP:
-```bash
-az ad sp create-for-rbac --name github-terraform-sp --role Contributor --scopes /subscriptions/<SUBSCRIPTION_ID>
-```
+Add repo secrets:
 
-Add GitHub Secrets (Repo -> Settings -> Secrets and variables -> Actions):
-- ARM_CLIENT_ID
-- ARM_CLIENT_SECRET
-- ARM_SUBSCRIPTION_ID
-- ARM_TENANT_ID
+- `ARM_CLIENT_ID`
+- `ARM_CLIENT_SECRET`
+- `ARM_SUBSCRIPTION_ID`
+- `ARM_TENANT_ID`
 
-## Run locally
+---
 
-```bash
-python local_ai.py
-```
+## Security notes
 
-## Notes
+- Do not commit keys, SSH material, kubeconfig, or tfstate.
+- This repo ignores `.terraform/`, `*.tfstate*`, and `*.pem/*.pub`.
 
-- Storage account name must be lowercase letters+numbers only, 3-24 chars.
-- Provider configuration is in `env/provider.tf` only.
-- Templates contain only resources.
+---
+
+## Extending the project
+
+Add a new action by:
+
+1) Creating a new template in `templates/`
+2) Adding it to `TEMPLATES` in `local_ai.py`
+3) Extending the JSON schema in `call_llm_json()`
+

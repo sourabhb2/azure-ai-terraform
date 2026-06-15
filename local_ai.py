@@ -6,8 +6,8 @@ import re
 from string import Template
 from datetime import datetime
 
-OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
-MODEL = "phi3:mini"
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434/api/generate")
+MODEL = os.getenv("OLLAMA_MODEL", "phi3:mini")
 
 # Avoid proxy issues for localhost
 os.environ["NO_PROXY"] = "localhost,127.0.0.1"
@@ -28,6 +28,12 @@ session.trust_env = False
 
 def log(msg):
     print(msg, flush=True)
+
+
+def print_help():
+    log("\nExamples:\n"
+        "  create storage account rg_name=dev-rg location=\"Central India\" storage_account_name=aistorage1234\n"
+        "  create vm rg_name=dev-rg location=\"Central India\" vm_name=ai-vm vm_size=Standard_B1s\n")
 
 
 def run(args, cwd):
@@ -150,14 +156,19 @@ def git_push(commit_message: str):
 
 
 def main():
-    prompt = input("💻 Enter command: ").strip()
+    prompt = input("💻 Enter command (or 'help'): ").strip()
     if not prompt:
         log("❌ Empty prompt.")
         return
 
+    if prompt.lower() in {"help", "-h", "--help"}:
+        print_help()
+        return
+
     log("🤖 Understanding prompt using Local LLM...")
     data = call_llm_json(prompt)
-    log(f"✅ JSON: {data}")
+    # Do not print secrets (future-safe)
+    log(f"✅ Parsed action: {data.get('action')}")
 
     action = (data.get("action") or "").strip()
     if action not in TEMPLATES:

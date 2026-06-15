@@ -4,6 +4,9 @@ on:
   push:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+
 jobs:
   terraform:
     runs-on: ubuntu-latest
@@ -14,6 +17,12 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Terraform Format
+        working-directory: env
+        run: terraform fmt -check -recursive
 
       - name: Terraform Init
         working-directory: env
